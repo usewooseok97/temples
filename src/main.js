@@ -5,6 +5,7 @@ import { DEG, dampAngle, dampFactor } from './core/math.js';
 import { nextFrame } from './core/assets.js';
 import { createPhysics } from './physics/physics.js';
 import { Input } from './player/input.js';
+import { TouchControls, wantsTouchControls } from './player/touchControls.js';
 import { Player } from './player/player.js';
 import { CameraRig } from './player/cameraRig.js';
 import { createCharacter, loadCharacterManifest, pickCharacter } from './character/index.js';
@@ -100,15 +101,19 @@ async function main() {
 
   // ---- 입력 & 시작 화면 ----
   const input = new Input(renderer.domElement);
+  const touch = wantsTouchControls(params) ? new TouchControls(input, hud.el) : null;
   const startPlaying = () => {
     hud.hideStart();
     input.setEnabled(true);
+    touch?.show();
     hud.setCrosshair(rig.mode === 'first');
   };
   const stopPlaying = () => {
     input.setEnabled(false);
+    touch?.hide();
     hud.showStart();
   };
+  if (touch) touch.onMenu = stopPlaying;
   input.onLockChange = (locked) => {
     if (locked) startPlaying();
     else if (!input.dragMode) stopPlaying();
@@ -147,7 +152,7 @@ async function main() {
     if (input.pressed('KeyV')) {
       const mode = rig.toggle();
       hud.setCrosshair(mode === 'first');
-      hud.toast(mode === 'first' ? '1인칭 시점' : '3인칭 시점 (휠: 카메라 거리)');
+      hud.toast(mode === 'first' ? '1인칭 시점' : touch ? '3인칭 시점' : '3인칭 시점 (휠: 카메라 거리)');
     }
     if (input.pressed('KeyF')) {
       player.flying = !player.flying;
@@ -272,7 +277,7 @@ async function main() {
   updateInfo();
 
   // 콘솔 디버깅용 핸들 (예: templeWalk.player.teleport(new templeWalk.THREE.Vector3(0, 10, 0)))
-  window.templeWalk = { THREE, scene, camera, renderer, physics, world, player, rig, character, input, hud, spawn, step, ready: true };
+  window.templeWalk = { THREE, scene, camera, renderer, physics, world, player, rig, character, input, touch, hud, spawn, step, ready: true };
 }
 
 /** 월드가 spawn 위치를 주지 않았거나 findGround 를 요청하면 레이캐스트로 바닥을 찾는다 */

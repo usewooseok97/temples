@@ -13,11 +13,11 @@ const isFormField = (el) =>
 /**
  * 키보드 + 마우스(포인터 락) 입력.
  *
- * 나중에 모바일 가상 조이스틱을 붙일 때는 이 클래스를 바꿀 필요 없이
+ * 터치 조작(touchControls.js)은 아래 외부 입력 API 로 값을 넣고, 플레이어 쪽 코드는 그대로 동작한다.
  *   input.virtualMove.x / .y  (−1~1, 오른쪽/앞이 +)  ← 왼쪽 조이스틱
+ *   input.virtualRun                               ← 조이스틱을 링 밖으로 더 밀기
  *   input.addLook(dx, dy)                          ← 오른쪽 화면 드래그
  *   input.press('Space')                           ← 점프 버튼
- * 를 호출하면 플레이어 쪽 코드는 그대로 동작한다.
  */
 export class Input {
   constructor(element) {
@@ -25,6 +25,7 @@ export class Input {
     this.enabled = false; // 시작 화면이 떠 있는 동안은 입력 무시
     this.locked = false;
     this.dragMode = false; // 포인터 락을 못 쓰는 환경이면 드래그로 둘러보기
+    this.touchMode = false; // TouchControls 가 둘러보기를 넣는 중이면 마우스 드래그 둘러보기는 끔
     this.down = new Set();
     this.pressedNow = new Set();
     this.lookX = 0;
@@ -62,7 +63,7 @@ export class Input {
       }
     });
     this.element.addEventListener('pointerdown', () => {
-      if (this.dragMode) this._dragging = true;
+      if (this.dragMode && !this.touchMode) this._dragging = true;
     });
     window.addEventListener('pointerup', () => {
       this._dragging = false;
@@ -125,10 +126,16 @@ export class Input {
       this.down.clear();
       this.pressedNow.clear();
       this.lookX = this.lookY = this.wheel = 0;
+      this.clearVirtual();
     }
   }
 
   // ---- 외부(가상 조이스틱 등)에서도 쓰는 입력 주입 API ----
+  clearVirtual() {
+    this.virtualMove.x = this.virtualMove.y = 0;
+    this.virtualRun = false;
+  }
+
   addLook(dx, dy) {
     this.lookX += dx;
     this.lookY += dy;

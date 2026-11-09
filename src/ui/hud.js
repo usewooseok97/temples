@@ -17,6 +17,12 @@ export class Hud {
       toast: $('toast'),
       error: $('error'),
       errorText: $('error-text'),
+      touchUi: $('touch-ui'),
+      touchStick: $('touch-stick'),
+      touchKnob: $('touch-knob'),
+      touchJump: $('touch-jump'),
+      touchView: $('touch-view'),
+      touchMenu: $('touch-menu'),
     };
     this._toastTimer = 0;
   }

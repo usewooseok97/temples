@@ -37,5 +37,13 @@ export const CAMERA = {
   },
 };
 
+export const TOUCH = {
+  stickRadius: 60, // 조이스틱 링 반지름 (CSS px)
+  deadZone: 0.12, // 스틱 중심의 무반응 구간 (반지름 대비)
+  runStart: 1.4, // 손가락이 반지름의 이 배수를 넘으면 달리기
+  runStop: 1.25, // 이 배수 아래로 돌아오면 다시 걷기 (경계에서 걷기/달리기가 깜빡이지 않게)
+  lookScale: 2.5, // 드래그 1px 을 마우스 몇 px 로 칠지 (CAMERA.mouseSensitivity 에 곱해짐)
+};
+
 // 시작 시점: 'first' | 'third'  (URL ?view=third 로도 바꿀 수 있음)
 export const DEFAULT_VIEW = 'first';

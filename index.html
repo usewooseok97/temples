@@ -22,8 +22,16 @@
       <div class="panel">
         <h1>Temple Walk</h1>
         <p id="start-world" class="world-name"></p>
-        <button id="start-button" class="start-button" type="button">클릭해서 시작</button>
-        <div class="keys">
+        <button id="start-button" class="start-button" type="button">
+          <span class="pc-only">클릭해서 시작</span><span class="touch-only">터치해서 시작</span>
+        </button>
+        <div class="keys touch-only">
+          <div><kbd>왼쪽 밀기</kbd><span>이동</span></div>
+          <div><kbd>링 밖으로</kbd><span>달리기</span></div>
+          <div><kbd>오른쪽 드래그</kbd><span>둘러보기</span></div>
+          <div><kbd>버튼</kbd><span>점프 · 시점 · 메뉴</span></div>
+        </div>
+        <div class="keys pc-only">
           <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span>이동</span></div>
           <div><kbd>마우스</kbd><span>둘러보기</span></div>
           <div><kbd>Shift</kbd><span>달리기</span></div>
@@ -31,7 +39,7 @@
           <div><kbd>V</kbd><span>1인칭 / 3인칭</span></div>
           <div><kbd>Esc</kbd><span>마우스 해제</span></div>
         </div>
-        <details class="more-keys">
+        <details class="more-keys pc-only">
           <summary>디버그 키</summary>
           <div class="keys">
             <div><kbd>F</kbd><span>자유 비행 (E/Q 위·아래)</span></div>
@@ -51,6 +59,14 @@
     <div id="crosshair" class="hidden"></div>
     <div id="hud-info"></div>
     <div id="toast"></div>
+
+    <!-- 터치 조작 (터치 기기에서 게임 중에만 표시) -->
+    <div id="touch-ui" class="hidden">
+      <div id="touch-stick" class="hidden"><div id="touch-knob"></div></div>
+      <button id="touch-menu" class="touch-button" type="button">메뉴</button>
+      <button id="touch-view" class="touch-button" type="button">시점</button>
+      <button id="touch-jump" class="touch-button" type="button">점프</button>
+    </div>
 
     <div id="error" class="overlay hidden">
       <div class="panel error-panel">

@@ -5,7 +5,7 @@ AI로 만든 3D 월드(World Labs Marble)를 웹에서 걸어 다니는 1인칭 
 지금은 절차 생성한 **테스트 월드**(산으로 둘러싸인 계곡, 강과 다리, 마을, 석축 위 탑과 법당, 정자)와 **테스트 마네킹 캐릭터**로 동작합니다. Marble 월드와 캐릭터 GLB는 파일을 넣고 JSON 항목 하나만 추가하면 붙습니다.
 
 - Vite 8 + three.js r187 (순수 three.js) + Spark 2.4 (Gaussian splat 렌더러) + Rapier 0.21 (물리·충돌)
-- PC 위주: WASD + 마우스. 모바일 가상 조이스틱은 나중에 붙일 수 있게 입력 연결 지점만 만들어 두었습니다.
+- PC: WASD + 마우스. 모바일: 가상 조이스틱 + 화면 드래그.
 
 ## 실행
 
@@ -36,6 +36,19 @@ npm run dev        # 브라우저가 자동으로 열림 (http://localhost:5173)
 | P | 현재 위치·방향을 `spawn` 값으로 클립보드에 복사 |
 
 한글 입력 상태에서도 키가 그대로 동작합니다 (물리 키 위치 기준).
+
+### 모바일
+
+| 터치 | 동작 |
+|---|---|
+| 화면 왼쪽을 누르고 밀기 | 이동 (닿은 자리에 조이스틱이 생기고, 미는 만큼 빨라짐) |
+| 조이스틱 링 밖으로 더 밀기 | 달리기 (손잡이가 주황색으로 바뀜) |
+| 화면 오른쪽 드래그 | 둘러보기 |
+| 점프 버튼 | 점프 |
+| 시점 버튼 | 1인칭 ↔ 3인칭 |
+| 메뉴 버튼 | 시작 화면으로 |
+
+조이스틱 크기, 달리기 경계, 드래그 감도는 `src/config.js`의 `TOUCH`에서 바꿉니다.
 
 ## Marble 월드 붙이기
 
@@ -127,7 +140,8 @@ src/
   main.js                      시작 + 메인 루프
   config.js                    걷기 속도·점프·경사·카메라 튜닝 값
   player/
-    input.js                   키보드·마우스 (모바일 조이스틱 연결 지점)
+    input.js                   키보드·마우스 + 외부 입력 API
+    touchControls.js           모바일 조이스틱·드래그·버튼
     player.js                  Rapier 캐릭터 컨트롤러 (경사·계단·점프·물속 감속)
     cameraRig.js               1인칭/3인칭 카메라, 벽 충돌, 걸음 흔들림
   character/
@@ -145,22 +159,14 @@ src/
 
 월드와 캐릭터는 각각 `src/worlds/index.js`, `src/character/index.js` 맨 위에 적어 둔 규약만 맞추면 다른 종류도 추가할 수 있습니다.
 
-## 나중에 모바일
-
-`Input` 클래스에 외부 입력을 넣는 API가 있어서, 가상 조이스틱은 아래만 호출하면 됩니다.
-
-```js
-input.virtualMove.x = 0.5; // 왼쪽 스틱 좌우 (오른쪽 +)
-input.virtualMove.y = 1;   // 왼쪽 스틱 앞뒤 (앞 +)
-input.addLook(dx, dy);     // 오른쪽 화면 드래그
-input.press('Space');      // 점프 버튼
-input.virtualRun = true;   // 달리기
-```
+## 모바일 테스트
 
 폰으로 테스트할 때는 `npm run dev -- --host`로 띄우고 같은 Wi-Fi에서 표시되는 Network 주소로 접속하면 됩니다.
 
+터치가 주 입력인 기기를 자동으로 감지해 터치 조작을 켭니다. PC에서 터치 화면을 보려면 `?touch=1`을 붙이면 되고(마우스로 조이스틱과 둘러보기를 하나씩 시험할 수 있음), 터치 기기에서 끄려면 `?touch=0`을 붙이면 됩니다.
+
 ## 참고
 
-- URL 옵션: `?world=<id>`, `?character=<id>`, `?view=third`, `?lod=0.5`, `?splat=…&collider=…`
+- URL 옵션: `?world=<id>`, `?character=<id>`, `?view=third`, `?lod=0.5`, `?splat=…&collider=…`, `?touch=1`
 - Marble 월드가 무거우면 `?lod=0.5`처럼 splat 수를 줄여 보세요.
 - 브라우저 콘솔의 `templeWalk` 객체로 내부 상태를 볼 수 있습니다. 예: `templeWalk.player.feet`, `templeWalk.step(1)`
