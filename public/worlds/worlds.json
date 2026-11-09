@@ -1,0 +1,10 @@
+{
+  "default": "test",
+  "worlds": [
+    {
+      "id": "test",
+      "name": "테스트 월드 (산·강·마을·탑)",
+      "type": "procedural"
+    }
+  ]
+}

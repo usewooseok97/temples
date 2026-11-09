@@ -1,0 +1,23 @@
+{
+  "name": "temple-walk",
+  "private": true,
+  "version": "0.1.0",
+  "description": "AI 생성 월드(World Labs Marble)를 1인칭으로 걷는 웹 뷰어 — Vite + three.js + Spark + Rapier",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
+  "dependencies": {
+    "@dimforge/rapier3d-compat": "^0.21.0",
+    "@sparkjsdev/spark": "^2.4.0",
+    "three": "~0.187.0"
+  },
+  "devDependencies": {
+    "vite": "^8.3.6"
+  }
+}

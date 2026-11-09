@@ -1,0 +1,10 @@
+{
+  "default": "mannequin",
+  "characters": [
+    {
+      "id": "mannequin",
+      "name": "테스트 마네킹",
+      "type": "procedural"
+    }
+  ]
+}

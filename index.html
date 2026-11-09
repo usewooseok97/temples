@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Temple Walk</title>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <!-- 로딩 화면 -->
+    <div id="loading" class="overlay">
+      <div class="loading-box">
+        <div class="loading-title">Temple Walk</div>
+        <div id="loading-text" class="loading-text">준비 중…</div>
+        <div class="loading-bar"><div id="loading-bar-fill"></div></div>
+      </div>
+    </div>
+
+    <!-- 시작 / 일시정지 화면 -->
+    <div id="start" class="overlay hidden">
+      <div class="panel">
+        <h1>Temple Walk</h1>
+        <p id="start-world" class="world-name"></p>
+        <button id="start-button" class="start-button" type="button">클릭해서 시작</button>
+        <div class="keys">
+          <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span>이동</span></div>
+          <div><kbd>마우스</kbd><span>둘러보기</span></div>
+          <div><kbd>Shift</kbd><span>달리기</span></div>
+          <div><kbd>Space</kbd><span>점프</span></div>
+          <div><kbd>V</kbd><span>1인칭 / 3인칭</span></div>
+          <div><kbd>Esc</kbd><span>마우스 해제</span></div>
+        </div>
+        <details class="more-keys">
+          <summary>디버그 키</summary>
+          <div class="keys">
+            <div><kbd>F</kbd><span>자유 비행 (E/Q 위·아래)</span></div>
+            <div><kbd>C</kbd><span>충돌 메시 보기</span></div>
+            <div><kbd>R</kbd><span>시작 위치로</span></div>
+            <div><kbd>P</kbd><span>현재 위치를 spawn 값으로 복사</span></div>
+            <div><kbd>휠</kbd><span>3인칭 카메라 거리</span></div>
+          </div>
+        </details>
+        <div class="selectors">
+          <label>월드 <select id="world-select"></select></label>
+          <label>캐릭터 <select id="character-select"></select></label>
+        </div>
+      </div>
+    </div>
+
+    <div id="crosshair" class="hidden"></div>
+    <div id="hud-info"></div>
+    <div id="toast"></div>
+
+    <div id="error" class="overlay hidden">
+      <div class="panel error-panel">
+        <h2>문제가 생겼어요</h2>
+        <pre id="error-text"></pre>
+        <a class="error-link" href="?world=test">테스트 월드로 열기</a>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
