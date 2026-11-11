@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { AUTOWALK, PLAYER } from '../config.js';
 import { DEG, clamp } from '../core/math.js';
+import { NavGrid } from './navGrid.js';
 
 const _origin = new THREE.Vector3();
 const _dir = new THREE.Vector3();
@@ -15,7 +16,8 @@ const _up = new THREE.Vector3(0, 1, 0);
  *   cancel()                     그만 걷기
  *
  * 수동 이동 입력(키보드·조이스틱)이 들어오거나, 입력이 꺼지거나(메뉴), 비행을 켜면 스스로 취소된다.
- * 길찾기는 하지 않고 직진한다. 벽에 막혀 stuckTime 동안 가까워지지 않으면 포기한다.
+ * 경로는 NavGrid(격자 A*)로 찾아 물·벽을 피해 다리와 문으로 돌아간다. 목적지에 닿을 수 없으면 가장 가까운 곳까지.
+ * 길을 못 찾으면 직진하고, 벽에 막혀 stuckTime 동안 가까워지지 않으면 포기한다.
  */
 export class AutoWalk {
   /**
@@ -27,8 +29,11 @@ export class AutoWalk {
     this.player = player;
     this.camera = camera;
     this.input = input;
-    /** @type {THREE.Vector3 | null} 목적지 (발 위치) */
+    /** @type {THREE.Vector3 | null} 지금 향하는 점 (경로의 현재 웨이포인트) */
     this.target = null;
+    /** @type {THREE.Vector3[]} 남은 웨이포인트 (target 포함, 마지막이 최종 목적지) */
+    this.path = [];
+    this.nav = new NavGrid(physics, { excludeCollider: player.collider, waterLevel: player.waterLevel ?? null });
     this.headingYaw = 0; // 목적지 방향 (카메라 yaw 규약: forward = (−sin, 0, −cos))
     this.distance = 0; // 목적지까지 남은 수평 거리
     this.bestDist = Infinity;
@@ -76,17 +81,39 @@ export class AutoWalk {
       _normal.set(0, 1, 0);
     }
 
-    this.target = point;
+    return this.goTo(point, _normal);
+  }
+
+  /**
+   * 월드 좌표(발 위치)로 걸어가기. 경로를 찾아 웨이포인트로 나누고 마커를 실제 도착 지점에 놓는다.
+   * @param {THREE.Vector3} point
+   * @param {THREE.Vector3} [normal] 마커를 눕힐 바닥 법선
+   */
+  goTo(point, normal = _up) {
+    this.nav.waterLevel = this.player.waterLevel ?? null;
+    const route = this.nav.findPath(this.player.feet, point);
+    this.path = route ? route.points.slice(1) : [point.clone()]; // 첫 점은 현재 위치
+    const dest = this.path[this.path.length - 1];
+    this.target = this.path[0];
     this.bestDist = Infinity;
     this.noProgress = 0;
     this._updateHeading();
-    this._showMarker(point, _normal);
+    this._showMarker(dest, route && !route.reachedGoal ? _up : normal); // 닿을 수 없는 곳이면 실제로 가는 끝점에
     return true;
+  }
+
+  /** 최종 목적지까지 남은 경로 길이 (달리기·감속 판단용) */
+  get remaining() {
+    if (!this.target) return 0;
+    let total = this.distance;
+    for (let i = 1; i < this.path.length; i++) total += this.path[i].distanceTo(this.path[i - 1]);
+    return total;
   }
 
   cancel(reason = 'cancel') {
     if (!this.target) return;
     this.target = null;
+    this.path = [];
     this.distance = 0;
     this.input.clearAutoMove();
     this.markerFade = 0.35;
@@ -103,10 +130,18 @@ export class AutoWalk {
       return;
     }
 
-    const dist = this._updateHeading();
-    if (dist < AUTOWALK.arriveRadius) {
-      this.cancel('arrived');
-      return;
+    let dist = this._updateHeading();
+    const last = this.path.length <= 1;
+    if (dist < (last ? AUTOWALK.arriveRadius : AUTOWALK.waypointRadius)) {
+      if (last) {
+        this.cancel('arrived');
+        return;
+      }
+      this.path.shift();
+      this.target = this.path[0];
+      this.bestDist = Infinity;
+      this.noProgress = 0;
+      dist = this._updateHeading();
     }
     // 가까워지지 않으면(벽, 절벽, 손 닿지 않는 지붕) 포기
     if (dist < this.bestDist - 0.03) {
@@ -120,11 +155,12 @@ export class AutoWalk {
       }
     }
 
-    const amount = clamp(dist / AUTOWALK.slowRadius, 0.3, 1); // 목적지 근처에서 감속
+    const remaining = this.remaining;
+    const amount = clamp(remaining / AUTOWALK.slowRadius, 0.3, 1); // 최종 목적지 근처에서 감속
     const f = player.feet;
     input.autoMove.x = ((this.target.x - f.x) / dist) * amount;
     input.autoMove.z = ((this.target.z - f.z) / dist) * amount;
-    input.autoMove.run = AUTOWALK.runBeyond > 0 && dist > AUTOWALK.runBeyond;
+    input.autoMove.run = AUTOWALK.runBeyond > 0 && remaining > AUTOWALK.runBeyond;
   }
 
   /** 목적지까지 수평 거리와 방향(headingYaw) 갱신 */

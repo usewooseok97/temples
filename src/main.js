@@ -233,7 +233,7 @@ async function main() {
     if (player.flying) return;
     if (autoWalk.active) {
       // 가까운 목적지는 약하게, 도착 직전에는 돌리지 않음
-      const w = clamp((autoWalk.distance - F.autoWalkNear) / (F.autoWalkFar - F.autoWalkNear), 0, 1);
+      const w = clamp((autoWalk.remaining - F.autoWalkNear) / (F.autoWalkFar - F.autoWalkNear), 0, 1);
       rig.follow(autoWalk.headingYaw, dt, {
         lambda: F.autoWalkLambda * w,
         pitch: rig.mode === 'third' ? F.autoWalkPitchDeg * DEG : null,

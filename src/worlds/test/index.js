@@ -58,7 +58,17 @@ export async function loadTestWorld(def, { renderer, scene, onProgress }) {
 
   onProgress?.('건물 짓는 중…', 0.8);
   await nextFrame();
-  root.add(buildStructures());
+  const structures = buildStructures();
+  root.add(structures);
+
+  // 실내 조명: 건물마다 램프 자리(userData.lamp)가 있지만 포인트 라이트는 2개만 두고
+  // 플레이어에게 가장 가까운 램프로 옮긴다 (라이트 수가 고정이라 셰이더가 다시 컴파일되지 않음)
+  const lampSpots = collectLampSpots(structures);
+  const lamps = [0, 1].map(() => {
+    const light = new THREE.PointLight('#ffcf9a', 0, 14, 2); // 꺼 둘 때는 visible 대신 intensity 0 (라이트 수 고정)
+    root.add(light);
+    return light;
+  });
 
   const spawnPos = new THREE.Vector3(SPAWN.x, terrainHeight(SPAWN.x, SPAWN.z) + 0.05, SPAWN.z);
   const [lx, lz] = SPAWN.lookAt;
@@ -79,8 +89,34 @@ export async function loadTestWorld(def, { renderer, scene, onProgress }) {
       // 그림자 영역이 플레이어를 따라다니도록
       sun.target.position.copy(focus);
       sun.position.copy(focus).addScaledVector(sunDir, 160);
+      updateLamps(lamps, lampSpots, focus);
     },
   };
+}
+
+/** 구조물 트리에서 램프 자리(userData.lamp, 로컬 좌표)를 월드 좌표로 모은다 */
+function collectLampSpots(root) {
+  root.updateMatrixWorld(true);
+  const spots = [];
+  root.traverse((obj) => {
+    if (obj.userData?.lamp) spots.push(obj.localToWorld(obj.userData.lamp.clone()));
+  });
+  return spots;
+}
+
+/** 가장 가까운 램프 자리 순으로 포인트 라이트를 배치. 멀면 세기를 0 으로 */
+const LAMP_INTENSITY = 40;
+function updateLamps(lights, spots, focus) {
+  const near = spots
+    .map((p) => ({ p, d: p.distanceToSquared(focus) }))
+    .sort((a, b) => a.d - b.d)
+    .slice(0, lights.length);
+  lights.forEach((light, i) => {
+    const spot = near[i];
+    const on = !!spot && spot.d < 40 * 40;
+    light.intensity = on ? LAMP_INTENSITY : 0;
+    if (on) light.position.copy(spot.p);
+  });
 }
 
 /** 월드 가장자리의 보이지 않는 벽 */
