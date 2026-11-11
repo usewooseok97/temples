@@ -51,6 +51,13 @@ export class Physics {
     return hit ? hit.timeOfImpact : null;
   }
 
+  /** 레이캐스트 + 닿은 면의 법선: 맞으면 { distance, normal: {x,y,z} }, 아니면 null (탭 이동 목적지 찾기용) */
+  raycastHit(origin, dir, maxDist, excludeCollider) {
+    const ray = new RAPIER.Ray(origin, dir);
+    const hit = this.world.castRayAndGetNormal(ray, maxDist, true, undefined, undefined, excludeCollider);
+    return hit ? { distance: hit.timeOfImpact, normal: hit.normal } : null;
+  }
+
   /** 구를 쓸어 보내 처음 닿는 거리 (3인칭 카메라 충돌용) */
   sphereCast(origin, dir, maxDist, radius, excludeCollider) {
     const hit = this.world.castShape(

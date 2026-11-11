@@ -1,13 +1,14 @@
 import './style.css';
 import * as THREE from 'three';
 import { CAMERA, PLAYER, DEFAULT_VIEW } from './config.js';
-import { DEG, dampAngle, dampFactor } from './core/math.js';
+import { DEG, clamp, dampAngle, dampFactor } from './core/math.js';
 import { nextFrame } from './core/assets.js';
 import { createPhysics } from './physics/physics.js';
 import { Input } from './player/input.js';
 import { TouchControls, wantsTouchControls } from './player/touchControls.js';
 import { Player } from './player/player.js';
 import { CameraRig } from './player/cameraRig.js';
+import { AutoWalk } from './player/autoWalk.js';
 import { createCharacter, loadCharacterManifest, pickCharacter } from './character/index.js';
 import { loadWorldManifest, pickWorld, loadWorld } from './worlds/index.js';
 import { ColliderDebugView } from './debug/colliderView.js';
@@ -102,14 +103,28 @@ async function main() {
   // ---- 입력 & 시작 화면 ----
   const input = new Input(renderer.domElement);
   const touch = wantsTouchControls(params) ? new TouchControls(input, hud.el) : null;
+
+  // 탭/클릭한 곳으로 걸어가기 (포인터 락 중에는 조준점 위치)
+  const autoWalk = new AutoWalk({ scene, physics, player, camera, input });
+  input.onTap = (ndcX, ndcY) => {
+    if (player.flying) return;
+    autoWalk.goToScreenPoint(ndcX, ndcY);
+  };
+  autoWalk.onStop = (reason) => {
+    if (reason === 'blocked') hud.toast('길이 막혀서 멈췄어요', 1600);
+  };
+
+  // 조준점: 1인칭이거나, 커서가 없는 포인터 락 상태(클릭할 곳을 알 수 있게)
+  const refreshCrosshair = () => hud.setCrosshair(input.enabled && (rig.mode === 'first' || input.locked));
   const startPlaying = () => {
     hud.hideStart();
     input.setEnabled(true);
     touch?.show();
-    hud.setCrosshair(rig.mode === 'first');
+    refreshCrosshair();
   };
   const stopPlaying = () => {
     input.setEnabled(false);
+    autoWalk.cancel();
     touch?.hide();
     hud.showStart();
   };
@@ -151,11 +166,12 @@ async function main() {
   const handleActions = () => {
     if (input.pressed('KeyV')) {
       const mode = rig.toggle();
-      hud.setCrosshair(mode === 'first');
+      refreshCrosshair();
       hud.toast(mode === 'first' ? '1인칭 시점' : touch ? '3인칭 시점' : '3인칭 시점 (휠: 카메라 거리)');
     }
     if (input.pressed('KeyF')) {
       player.flying = !player.flying;
+      autoWalk.cancel();
       hud.toast(player.flying ? '자유 비행 — E/Space 위, Q 아래, Shift 빠르게' : '자유 비행 끔');
     }
     if (input.pressed('KeyC')) {
@@ -163,9 +179,10 @@ async function main() {
       hud.toast(colliderView.toggle() ? '충돌 메시 표시 (분홍: 충돌면, 노랑: 플레이어)' : '충돌 메시 숨김');
     }
     if (input.pressed('KeyR')) {
+      autoWalk.cancel();
       player.teleport(spawn.position);
       rig.yaw = spawn.yaw;
-      rig.pitch = 0;
+      rig.resetPitch();
       hud.toast('시작 위치로 이동');
     }
     if (input.pressed('KeyP')) copySpawn();
@@ -192,13 +209,48 @@ async function main() {
 
   const updateInfo = () => {
     const f = player.feet;
-    const flags = [player.flying && '비행', player.inWater && '물속', colliderView?.group.visible && '충돌메시']
+    const flags = [
+      autoWalk.active && '자동 이동',
+      player.flying && '비행',
+      player.inWater && '물속',
+      colliderView?.group.visible && '충돌메시',
+    ]
       .filter(Boolean)
       .join(' · ');
     hud.setInfo(
       `${worldLabel}\n${rig.mode === 'first' ? '1인칭' : '3인칭'} · ${fps} fps${flags ? ` · ${flags}` : ''}\n` +
         `xyz ${f.x.toFixed(1)}, ${f.y.toFixed(1)}, ${f.z.toFixed(1)}`,
     );
+  };
+
+  /**
+   * 진행 방향 추적 카메라 (내비게이션처럼 앞쪽이 보이게).
+   * 탭 이동 중에는 목적지 방향으로, 조이스틱으로 걷는 중에는 실제 이동 방향으로 카메라를 돌린다.
+   * 옆·뒤로 미는 중에는 돌리지 않고(빙글 도는 것 방지), 직접 둘러본 직후에는 rig 가 잠시 쉰다.
+   */
+  const followCamera = (dt) => {
+    const F = CAMERA.follow;
+    if (player.flying) return;
+    if (autoWalk.active) {
+      // 가까운 목적지는 약하게, 도착 직전에는 돌리지 않음
+      const w = clamp((autoWalk.distance - F.autoWalkNear) / (F.autoWalkFar - F.autoWalkNear), 0, 1);
+      rig.follow(autoWalk.headingYaw, dt, {
+        lambda: F.autoWalkLambda * w,
+        pitch: rig.mode === 'third' ? F.autoWalkPitchDeg * DEG : null,
+        pitchLambda: F.pitchLambda * w,
+      });
+      return;
+    }
+    if (rig.mode !== 'third' || player.speed < F.minSpeed) return;
+    const vm = input.virtualMove;
+    const viaStick = Math.hypot(vm.x, vm.y) > 0.1;
+    const lambda = viaStick ? F.stickLambda : F.keyboard ? F.keyboardLambda : 0;
+    if (lambda <= 0 || !input.hasManualMove) return;
+    const sideDeg = Math.abs(Math.atan2(input.moveX, input.moveY)) / DEG; // 스틱이 앞에서 벗어난 각도
+    const weight = clamp((F.stickStopDeg - sideDeg) / (F.stickStopDeg - F.stickFullDeg), 0, 1);
+    if (weight <= 0) return;
+    const v = player.velocity;
+    rig.follow(Math.atan2(-v.x, -v.z), dt, { lambda: lambda * weight });
   };
 
   /** 한 프레임 분량의 시뮬레이션 (입력 → 물리 → 캐릭터 → 카메라). 렌더링은 하지 않음 */
@@ -209,14 +261,17 @@ async function main() {
     rig.zoom(input.consumeWheel());
     if (input.enabled) handleActions();
 
+    autoWalk.update(dt);
     player.update(dt, input, rig.yaw, rig.pitch);
     physics.step(dt);
     player.syncFromPhysics();
     if (player.feet.y < world.killY) {
+      autoWalk.cancel();
       player.teleport(spawn.position);
       hud.toast('떨어져서 시작 위치로 돌아왔어요');
     }
 
+    followCamera(dt);
     rig.update(dt, player);
 
     // 캐릭터는 이동 방향을 바라봄 (1인칭에서는 숨김)
@@ -277,7 +332,10 @@ async function main() {
   updateInfo();
 
   // 콘솔 디버깅용 핸들 (예: templeWalk.player.teleport(new templeWalk.THREE.Vector3(0, 10, 0)))
-  window.templeWalk = { THREE, scene, camera, renderer, physics, world, player, rig, character, input, touch, hud, spawn, step, ready: true };
+  window.templeWalk = {
+    THREE, scene, camera, renderer, physics, world, player, rig, autoWalk, character, input, touch, hud, spawn, step,
+    ready: true,
+  };
 }
 
 /** 월드가 spawn 위치를 주지 않았거나 findGround 를 요청하면 레이캐스트로 바닥을 찾는다 */

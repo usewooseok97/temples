@@ -1,3 +1,4 @@
+import { AUTOWALK } from '../config.js';
 import { clamp } from '../core/math.js';
 
 // event.code(물리 키 위치)를 쓰므로 한글 입력 상태에서도 WASD가 그대로 동작한다.
@@ -6,6 +7,14 @@ const GAME_KEYS = new Set([
   'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'ShiftLeft', 'ShiftRight',
 ]);
 const MAX_MOUSE_DELTA = 300; // 포인터 락 직후 가끔 튀는 큰 값 무시
+
+/** 화면 픽셀 좌표 → 정규화 장치 좌표(NDC, −1~1). 레이캐스트로 탭한 곳을 찾을 때 씀 */
+export const toNdcX = (clientX) => (clientX / window.innerWidth) * 2 - 1;
+export const toNdcY = (clientY) => -(clientY / window.innerHeight) * 2 + 1;
+
+/** 누른 곳에서 거의 움직이지 않고 짧게 뗐으면 탭(클릭)으로 본다 */
+export const isTap = (press, clientX, clientY, now = performance.now()) =>
+  Math.hypot(clientX - press.x0, clientY - press.y0) <= AUTOWALK.tapMaxMovePx && now - press.t0 <= AUTOWALK.tapMaxTimeMs;
 
 const isFormField = (el) =>
   !!el && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
@@ -18,6 +27,9 @@ const isFormField = (el) =>
  *   input.virtualRun                               ← 조이스틱을 링 밖으로 더 밀기
  *   input.addLook(dx, dy)                          ← 오른쪽 화면 드래그
  *   input.press('Space')                           ← 점프 버튼
+ *   input.tap(ndcX, ndcY)                          ← 화면 탭 (onTap 콜백으로 전달, 그곳으로 걸어가기)
+ *
+ * 자동 걷기(autoWalk.js)는 input.autoMove 에 월드 기준 방향을 넣고, 수동 이동 입력이 있으면 플레이어가 그쪽을 우선한다.
  */
 export class Input {
   constructor(element) {
@@ -33,11 +45,16 @@ export class Input {
     this.wheel = 0;
     this.virtualMove = { x: 0, y: 0 };
     this.virtualRun = false;
+    /** 자동 걷기가 넣는 월드 기준 이동 벡터 (길이 0~1 = 속도 배율). 수동 입력이 없을 때만 쓰임 */
+    this.autoMove = { x: 0, z: 0, run: false };
     /** @type {(locked: boolean) => void} */
     this.onLockChange = null;
     /** @type {() => void} */
     this.onLockFailed = null;
+    /** @type {(ndcX: number, ndcY: number) => void}  화면을 탭/클릭했을 때 (포인터 락 중엔 화면 중앙) */
+    this.onTap = null;
     this._dragging = false;
+    this._press = null; // 마우스 탭 판정용 (드래그 모드)
     this._lockUsesPromise = false;
     this._bind();
   }
@@ -62,11 +79,22 @@ export class Input {
         );
       }
     });
-    this.element.addEventListener('pointerdown', () => {
-      if (this.dragMode && !this.touchMode) this._dragging = true;
+    // 마우스 클릭 → 탭. 터치 모드에서는 TouchControls 가 조이스틱과 구분해서 처리한다.
+    this.element.addEventListener('pointerdown', (e) => {
+      if (this.touchMode || !this.enabled || e.button !== 0) return;
+      if (this.locked) {
+        this.tap(0, 0); // 포인터 락 중엔 커서가 없으므로 조준점(화면 중앙)
+        return;
+      }
+      this._press = { x0: e.clientX, y0: e.clientY, t0: performance.now() };
+      if (this.dragMode) this._dragging = true;
     });
-    window.addEventListener('pointerup', () => {
+    window.addEventListener('pointerup', (e) => {
       this._dragging = false;
+      const press = this._press;
+      this._press = null;
+      if (!press || this.touchMode || !this.enabled) return;
+      if (isTap(press, e.clientX, e.clientY)) this.tap(toNdcX(e.clientX), toNdcY(e.clientY));
     });
     this.element.addEventListener(
       'wheel',
@@ -134,6 +162,12 @@ export class Input {
   clearVirtual() {
     this.virtualMove.x = this.virtualMove.y = 0;
     this.virtualRun = false;
+    this.clearAutoMove();
+  }
+
+  clearAutoMove() {
+    this.autoMove.x = this.autoMove.z = 0;
+    this.autoMove.run = false;
   }
 
   addLook(dx, dy) {
@@ -145,6 +179,12 @@ export class Input {
     this.pressedNow.add(code);
   }
 
+  /** 화면의 한 점을 탭/클릭함 (NDC 좌표). 그곳으로 걸어가기 등은 onTap 이 처리 */
+  tap(ndcX, ndcY) {
+    if (!this.enabled) return;
+    this.onTap?.(ndcX, ndcY);
+  }
+
   // ---- 플레이어가 읽는 값 ----
   isDown(code) {
     return this.down.has(code);
@@ -152,6 +192,11 @@ export class Input {
 
   pressed(code) {
     return this.pressedNow.has(code);
+  }
+
+  /** 수동 이동 입력(키보드·조이스틱)이 있는지 */
+  get hasManualMove() {
+    return Math.hypot(this.moveX, this.moveY) > 0.1;
   }
 
   /** 좌우 (오른쪽 +1) */

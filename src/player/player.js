@@ -73,17 +73,28 @@ export class Player {
     // 입력 → 카메라 기준 수평 방향.  forward = (−sin, 0, −cos), right = (cos, 0, −sin)
     let mx = input.moveX;
     let my = input.moveY;
-    const len = Math.hypot(mx, my);
+    let len = Math.hypot(mx, my);
     if (len > 1) {
       mx /= len;
       my /= len;
     }
-    const sin = Math.sin(yaw);
-    const cos = Math.cos(yaw);
-    const dirX = mx * cos - my * sin;
-    const dirZ = -mx * sin - my * cos;
+    let dirX;
+    let dirZ;
+    if (len > 0.1) {
+      const sin = Math.sin(yaw);
+      const cos = Math.cos(yaw);
+      dirX = mx * cos - my * sin;
+      dirZ = -mx * sin - my * cos;
+      this.running = input.running;
+    } else {
+      // 수동 입력이 없으면 자동 걷기(탭한 곳으로)가 넣은 월드 기준 방향
+      const auto = input.autoMove;
+      dirX = auto.x;
+      dirZ = auto.z;
+      len = Math.hypot(dirX, dirZ);
+      this.running = auto.run && len > 0.1;
+    }
 
-    this.running = input.running && len > 0.1;
     let speed = this.running ? cfg.runSpeed : cfg.walkSpeed;
     if (this.inWater) speed *= cfg.waterSpeedFactor;
 

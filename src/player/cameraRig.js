@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { CAMERA } from '../config.js';
-import { DEG, clamp, dampFactor } from '../core/math.js';
+import { DEG, clamp, dampAngle, dampFactor } from '../core/math.js';
 
 const _euler = new THREE.Euler(0, 0, 0, 'YXZ');
 const _pivot = new THREE.Vector3();
@@ -9,7 +9,8 @@ const _right = new THREE.Vector3();
 
 /**
  * 1인칭 / 3인칭 카메라.
- * yaw/pitch는 마우스가 바꾸고, 플레이어 이동 방향도 이 yaw를 기준으로 한다.
+ * yaw/pitch는 마우스·드래그가 바꾸고, 플레이어 이동 방향도 이 yaw를 기준으로 한다.
+ * follow() 로 진행 방향 뒤쪽으로 천천히 돌릴 수 있고, 사용자가 직접 둘러보면 잠시 멈춘다.
  */
 export class CameraRig {
   constructor(camera, physics, { mode = 'first', eyeHeight = 1.62 } = {}) {
@@ -24,13 +25,38 @@ export class CameraRig {
     this.smoothY = null; // 계단 오를 때 카메라 높이를 부드럽게
     this.bobPhase = 0;
     this.bobAmount = 0;
+    this.followHold = 0; // 사용자가 직접 둘러본 뒤 자동 추적을 쉬는 남은 시간 (초)
+    this.resetPitch();
   }
 
   look(dx, dy) {
+    if (!dx && !dy) return;
     const s = CAMERA.mouseSensitivity;
     this.yaw -= dx * s;
     this.pitch -= dy * s;
     this._clampPitch();
+    this.followHold = CAMERA.follow.resumeDelay;
+  }
+
+  /**
+   * 진행 방향 추적: yaw 를 headingYaw 쪽으로 부드럽게 돌린다 (내비게이션처럼 앞쪽이 보이게).
+   * 사용자가 방금 직접 둘러봤으면(followHold) 건너뛴다.
+   * @param {number} headingYaw  바라볼 방향 (라디안, 카메라 yaw 규약)
+   * @param {number} dt
+   * @param {{ lambda: number, pitch?: number | null, pitchLambda?: number }} opts  pitch 가 null 이면 상하는 그대로
+   */
+  follow(headingYaw, dt, { lambda, pitch = null, pitchLambda = CAMERA.follow.pitchLambda }) {
+    if (this.followHold > 0 || lambda <= 0) return;
+    this.yaw = dampAngle(this.yaw, headingYaw, lambda, dt);
+    if (pitch !== null) {
+      this.pitch += (pitch - this.pitch) * dampFactor(pitchLambda, dt);
+      this._clampPitch();
+    }
+  }
+
+  /** 시작·리셋 때의 기본 상하각 (3인칭은 살짝 내려다봄) */
+  resetPitch() {
+    this.pitch = this.mode === 'third' ? CAMERA.thirdPerson.defaultPitchDeg * DEG : 0;
   }
 
   _clampPitch() {
@@ -61,6 +87,8 @@ export class CameraRig {
 
   /** @param {import('./player.js').Player} player */
   update(dt, player) {
+    this.followHold = Math.max(0, this.followHold - dt);
+
     const feet = player.feet;
     const jump = this.smoothY === null || Math.abs(feet.y - this.smoothY) > 1.5;
     if (jump || !player.grounded || player.flying) this.smoothY = feet.y;
