@@ -22,7 +22,7 @@ export const TEMPLE = {
   radius: 24,
   falloff: 16,
   y: 4.0,
-  platform: { w: 24, d: 20, h: 2.4 },
+  platform: { w: 26, d: 26, h: 2.4 }, // 뒤쪽 법당, 그 정면에 석탑, 앞쪽 마당
   steps: 12,
   stepRise: 0.2,
   stepRun: 0.38,

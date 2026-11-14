@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { terrainHeight } from './terrain.js';
+import { makeBuddha } from './buddha.js';
 import { VILLAGE, TEMPLE, PAVILION, BRIDGE, BRIDGE_X } from './layout.js';
 
 // ---------------------------------------------------------------------------
@@ -422,7 +423,7 @@ function makeHall() {
   const D = 6.4;
   const H = 3.6;
   const base = 0.6;
-  const hallDoor = { width: W / 5 - 0.7, height: H - 1.0 }; // 가운데 칸 문살 자리가 그대로 출입구
+  const hallDoor = { width: 1.8, height: H - 1.0 }; // 가운데 기둥 사이(2.2m)에 맞춘 출입구
   g.add(stoneBox(W + 1.2, base, D + 1.2, 0, base / 2, 0));
   const hallWindows = [];
   for (const side of ['left', 'right']) for (const at of [-1.6, 1.6]) hallWindows.push({ side, at, y: 1.3, w: 1.2, h: 1.1 });
@@ -437,6 +438,23 @@ function makeHall() {
   const door = makeDoor(hallDoor, 0.3, M.pillar);
   door.position.set(0, base, D / 2 - 0.15);
   g.add(door);
+
+  // 불단 + 부처님 좌상 (뒷벽 앞, 문을 바라봄) + 양옆 등
+  const daisH = 0.5; // 자동 턱 오르기(0.42)보다 높아 올라서지 못함
+  const daisZ = -D / 2 + 0.3 + 1.3;
+  g.add(box(4.2, daisH, 2.4, M.woodDark, 0, base + daisH / 2, daisZ));
+  g.add(box(4.6, 0.08, 2.8, M.pillar, 0, base + daisH + 0.04, daisZ));
+  const buddha = makeBuddha({ height: 2.3 });
+  buddha.position.set(0, base + daisH + 0.08, daisZ + 0.1);
+  g.add(buddha);
+  for (const sx of [-1, 1]) {
+    const lampSpot = new THREE.Group(); // 좌상 앞 양옆에 등 하나씩 (가까운 램프로 포인트 라이트가 옮겨 옴)
+    lampSpot.position.set(sx * 1.6, base + 2.4, daisZ + 1.9);
+    lampSpot.userData.lamp = new THREE.Vector3(0, 0, 0);
+    lampSpot.add(deco(new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), M.lampGlow)));
+    lampSpot.add(deco(cyl(0.012, 0.012, H - 2.4 - 0.1, 4, M.woodDark, 0, (H - 2.4) / 2 + 0.08, 0)));
+    g.add(lampSpot);
+  }
   // 기단(0.6m)은 한 번에 못 올라서므로 문 앞에 디딤돌 (0.3m 씩 두 단)
   const edge = D / 2 + 0.6; // 기단 앞 가장자리
   g.add(stoneBox(2.6, 0.6, 0.9, 0, 0.3, edge + 0.45)); // 윗단 (기단과 같은 높이)
@@ -472,17 +490,18 @@ function makeTemple() {
     }
   }
 
-  const pagoda = makePagoda();
-  pagoda.position.set(0, h, 2.0);
-  g.add(pagoda);
-  for (const sx of [-1, 1]) {
-    const lantern = makeLantern();
-    lantern.position.set(sx * 4.4, h, d / 2 - 2.2);
-    g.add(lantern);
-  }
+  // 뒤쪽 법당 → 디딤돌 → 3.6m 통로 → 석탑(법당 정면 축) → 마당 → 계단
   const hall = makeHall();
   hall.position.set(0, h, -d / 2 + 4.0);
   g.add(hall);
+  const pagoda = makePagoda();
+  pagoda.position.set(0, h, -d / 2 + 4.0 + 3.2 + 0.6 + 1.8 + 3.6 + 2.6); // 디딤돌 끝에서 3.6m 띄움
+  g.add(pagoda);
+  for (const sx of [-1, 1]) {
+    const lantern = makeLantern();
+    lantern.position.set(sx * 4.4, h, pagoda.position.z + 4.6);
+    g.add(lantern);
+  }
   return g;
 }
 

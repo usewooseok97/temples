@@ -2,7 +2,7 @@
 
 AI로 만든 3D 월드(World Labs Marble)를 웹에서 걸어 다니는 뷰어입니다. 기본은 3인칭이고 1인칭으로 바꿀 수 있습니다.
 
-지금은 절차 생성한 **테스트 월드**(산으로 둘러싸인 계곡, 강과 다리, 마을, 석축 위 탑과 법당, 정자)와 **테스트 마네킹 캐릭터**로 동작합니다. 집·망루·법당은 속이 비어 있어 문으로 들어갈 수 있고, 창문 개구부와 천장 램프가 있습니다 (`structures.js`의 `makeShell` / `makeDoor`). 실내 포인트 라이트는 2개만 두고 플레이어에게 가장 가까운 램프로 옮겨 씁니다. Marble 월드와 캐릭터 GLB는 파일을 넣고 JSON 항목 하나만 추가하면 붙습니다.
+지금은 절차 생성한 **테스트 월드**(산으로 둘러싸인 계곡, 강과 다리, 마을, 석축 위 석탑과 금동 좌상을 모신 법당, 정자)와 **테스트 마네킹 캐릭터**로 동작합니다. 집·망루·법당은 속이 비어 있어 문으로 들어갈 수 있고, 창문 개구부와 천장 램프가 있습니다 (`structures.js`의 `makeShell` / `makeDoor`). 실내 포인트 라이트는 2개만 두고 플레이어에게 가장 가까운 램프로 옮겨 씁니다. Marble 월드와 캐릭터 GLB는 파일을 넣고 JSON 항목 하나만 추가하면 붙습니다.
 
 - Vite 8 + three.js r187 (순수 three.js) + Spark 2.4 (Gaussian splat 렌더러) + Rapier 0.21 (물리·충돌)
 - 가고 싶은 곳을 탭/클릭하면 캐릭터가 그곳까지 걸어가고, 카메라는 내비게이션처럼 진행 방향 앞쪽을 비춥니다.
@@ -165,6 +165,7 @@ src/
     index.js                   월드 공통 규약 + 선택·로딩
     marbleWorld.js             Spark splat + collider GLB
     test/                      절차 생성 테스트 월드 (Marble로 넘어가면 폴더째 지워도 됨)
+      structures.js            건물·다리·석축 (makeShell / makeDoor 빌딩 블록), buddha.js 는 법당 안 좌상
   physics/physics.js           Rapier 래퍼 (메시 → trimesh 충돌체, 레이캐스트)
   debug/colliderView.js        C 키 충돌 메시 보기
   ui/hud.js                    로딩·시작 화면·토스트
